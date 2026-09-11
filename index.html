@@ -560,7 +560,7 @@
     bgGlow(0x0aa88a, 6, 8, -13, 34, 0.07);
 
     // ---------- 雪 ----------
-    var SNOW_N = IS_MOBILE ? 150 : 300;
+    var SNOW_N = IS_MOBILE ? 220 : 450;
     var snowGeo = new THREE.BufferGeometry();
     var sp2 = new Float32Array(SNOW_N * 3);
     var svel = new Float32Array(SNOW_N);
@@ -571,8 +571,38 @@
       svel[i] = 0.8 + Math.random() * 1.6;
     }
     snowGeo.setAttribute('position', new THREE.BufferAttribute(sp2, 3));
+    // 六角雪花纹理（看得出是雪花，不是光点）
+    var snowflakeTex = (function () {
+      var S = 128;
+      var cv = document.createElement('canvas'); cv.width = cv.height = S;
+      var ctx = cv.getContext('2d');
+      var cx = S / 2, cy = S / 2;
+      ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+      ctx.lineCap = 'round';
+      for (var i = 0; i < 6; i++) {
+        var ang = i * Math.PI / 3;
+        var ex = cx + Math.cos(ang) * (S * 0.44);
+        var ey = cy + Math.sin(ang) * (S * 0.44);
+        ctx.lineWidth = S * 0.035;
+        ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(ex, ey); ctx.stroke();
+        [0.55, 0.8].forEach(function (t) {
+          var bx = cx + Math.cos(ang) * (S * 0.44 * t);
+          var by = cy + Math.sin(ang) * (S * 0.44 * t);
+          var blen = S * 0.11 * (1.1 - t);
+          [Math.PI / 4.5, -Math.PI / 4.5].forEach(function (da) {
+            ctx.lineWidth = S * 0.026;
+            ctx.beginPath(); ctx.moveTo(bx, by);
+            ctx.lineTo(bx + Math.cos(ang + da) * blen, by + Math.sin(ang + da) * blen);
+            ctx.stroke();
+          });
+        });
+      }
+      ctx.fillStyle = 'rgba(255,255,255,0.95)';
+      ctx.beginPath(); ctx.arc(cx, cy, S * 0.05, 0, 6.2832); ctx.fill();
+      return new THREE.CanvasTexture(cv);
+    })();
     var snow = new THREE.Points(snowGeo, new THREE.PointsMaterial({
-      size: 0.42, map: glowTex, color: 0xbfe8ff, transparent: true, opacity: 0.45,
+      size: 1.15, map: snowflakeTex, color: 0xffffff, transparent: true, opacity: 0.85,
       blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true
     }));
     snow.visible = false;      // 默认不下雪；手掌张开后开始，之后不停
