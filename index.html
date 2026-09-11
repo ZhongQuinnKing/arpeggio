@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"/>
-<title>赛博粒子圣诞树 · 手势版</title>
+<title>赛博粒子圣诞树 · 互动版</title>
 <style>
   html, body { margin: 0; height: 100%; overflow: hidden; background: #02040c; }
   #app { position: fixed; inset: 0; touch-action: none; }
@@ -579,6 +579,22 @@
     })();
 
     // ---------- 图片粒子（部分粒子本身就是图片：方形粒子贴图，随粒子流散开）----------
+    var atlasCanvasEl = null, atlasTexRef = null;
+    // 访客拍照后：把最近的照片画进 atlas 替换占位图
+    window.__cyberTreeUpdateAtlas = function (photoCanvases) {
+      if (!atlasCanvasEl) return;
+      var CELL = 256;
+      var ctx = atlasCanvasEl.getContext('2d');
+      for (var i = 0; i < photoCanvases.length && i < 4; i++) {
+        var cx = (i % 2) * CELL, cy = Math.floor(i / 2) * CELL;
+        var cvp = photoCanvases[i];
+        var scale = Math.max(CELL / cvp.width, CELL / cvp.height);
+        var dw = cvp.width * scale, dh = cvp.height * scale;
+        ctx.drawImage(cvp, cx + (CELL - dw) / 2, cy + (CELL - dh) / 2, dw, dh);
+      }
+      if (atlasTexRef) atlasTexRef.needsUpdate = true;
+    };
+
     function makePhotoAtlas() {
       var CELL = 256, S = CELL * 2;
       var cv = document.createElement('canvas'); cv.width = cv.height = S;
@@ -605,6 +621,7 @@
         ctx.lineWidth = 10;
         ctx.strokeRect(cx + 5, cy + 5, CELL - 10, CELL - 10);
       }
+      atlasCanvasEl = cv;
       return new THREE.CanvasTexture(cv);
     }
 
@@ -617,6 +634,7 @@
       uImgFade: { value: 0 },
       uAtlas: { value: makePhotoAtlas() }
     };
+    atlasTexRef = imgUniforms.uAtlas.value;
 
     (function initImgParticles() {
       var N = IS_MOBILE ? 140 : 260;
@@ -706,7 +724,12 @@
     var photoGeo = new THREE.PlaneGeometry(9.5, 11.1);
     var photoCur = 0.01, photoV = 0, photoTarget = 0;
     window.__cyberTreePhoto = function (canvasEl, on) {
-      if (canvasEl && !photoMesh) {
+      if (canvasEl && photoMesh) {
+        // 换一张新照片
+        photoMesh.material.map.dispose();
+        photoMesh.material.map = new THREE.CanvasTexture(canvasEl);
+        photoMesh.material.needsUpdate = true;
+      } else if (canvasEl && !photoMesh) {
         var tex = new THREE.CanvasTexture(canvasEl);
         var mat = new THREE.MeshBasicMaterial({
           map: tex, transparent: true, side: THREE.DoubleSide,
@@ -725,6 +748,7 @@
     var clock = new THREE.Clock();
     var time = 0;
     var frames = 0;
+    var frameCnt = 0, fpsT = 0;
     var AUTO = 0.16;
 
     function animate() {
@@ -821,6 +845,13 @@
         // 从树心弹出 / 缩回树中
         photoMesh.position.set(2.8 * photoCur, 10.5 + 1.7 * photoCur, 10.5 * photoCur);
         photoMesh.lookAt(camera.position);
+      }
+
+      // 帧率监测：持续低帧率自动关泛光，保证流畅
+      frameCnt++;
+      if (time - fpsT > 2) {
+        if (frameCnt / (time - fpsT) < 42 && composer) composer = null;
+        frameCnt = 0; fpsT = time;
       }
 
       if (composer) composer.render(); else renderer.render(scene, camera);
@@ -969,10 +1000,89 @@ function makeEmptyFrame() {
   return cv;
 }
 
+// ========== 分享版：比耶拍照 + 随机翻看 ==========
+const photoPool = [];       // 访客拍的照片
+let shownIdx = [];          // 本轮已展示过的索引
+let peaceStart = 0, lastShot = 0;
+
+// 比耶：食指 + 中指伸直，无名指 + 小指弯曲
+function isPeace(lm) {
+  return fingerExtend(lm, 5, 6, 8) > 0.65
+      && fingerExtend(lm, 9, 10, 12) > 0.65
+      && fingerExtend(lm, 13, 14, 16) < 0.4
+      && fingerExtend(lm, 17, 18, 20) < 0.4;
+}
+
+// 拍照：摄像头帧 → 金框照片卡
+function makePhotoCard() {
+  const W = 512, H = 600;
+  const cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d');
+  ctx.fillStyle = '#0a1422';
+  ctx.fillRect(0, 0, W, H);
+  const pad = 26, top = 30, bottom = 104;
+  const pw = W - pad * 2, ph = H - top - bottom;
+  ctx.save();
+  ctx.translate(pad + pw, top);
+  ctx.scale(-1, 1);
+  try {
+    ctx.drawImage(video, 0, 0, video.videoWidth || 640, video.videoHeight || 480, 0, 0, pw, ph);
+  } catch (e) { /* 视频未就绪 */ }
+  ctx.restore();
+  const g = ctx.createLinearGradient(0, 0, W, H);
+  g.addColorStop(0, '#f7dc86'); g.addColorStop(0.5, '#c9a227'); g.addColorStop(1, '#f0cf6e');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, 18); ctx.fillRect(0, H - 18, W, 18);
+  ctx.fillRect(0, 0, 18, H); ctx.fillRect(W - 18, 0, 18, H);
+  ctx.strokeStyle = 'rgba(220, 190, 110, 0.8)';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(pad + 1.5, top + 1.5, pw - 3, ph - 3);
+  ctx.fillStyle = '#c9a227';
+  ctx.font = '600 40px Georgia, "Times New Roman", serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('MERRY CHRISTMAS', W / 2, H - 38);
+  return cv;
+}
+
+function takePhoto() {
+  const card = makePhotoCard();
+  photoPool.push(card);
+  shownIdx = [];                                     // 新照片加入 → 重开轮换
+  if (typeof window.__cyberTreeUpdateAtlas === 'function') {
+    window.__cyberTreeUpdateAtlas(photoPool.slice(-4));   // 最近 4 张铺进粒子云
+  }
+  flash.style.transition = 'none';
+  flash.style.opacity = '0.8';
+  requestAnimationFrame(() => {
+    flash.style.transition = 'opacity .55s';
+    flash.style.opacity = '0';
+  });
+}
+
+// 取下一张展示照片：随机，一轮内不重复
+function nextPhotoCard() {
+  if (!photoPool.length) return null;
+  if (shownIdx.length >= photoPool.length) shownIdx = [];
+  const remaining = photoPool.map((_, i) => i).filter(i => shownIdx.indexOf(i) < 0);
+  const pick = remaining[Math.floor(Math.random() * remaining.length)];
+  shownIdx.push(pick);
+  return photoPool[pick];
+}
+
 function showPhoto(on) {
   if (typeof window.__cyberTreePhoto !== 'function') return;
-  if (on && !frameCanvas) frameCanvas = makeEmptyFrame();
-  window.__cyberTreePhoto(frameCanvas, on);
+  if (on) {
+    const card = nextPhotoCard();
+    if (card) {
+      window.__cyberTreePhoto(card, true);           // 展示访客拍的照片
+    } else {
+      if (!frameCanvas) frameCanvas = makeEmptyFrame();
+      window.__cyberTreePhoto(frameCanvas, true);    // 还没拍过照 → 空框
+    }
+  } else {
+    window.__cyberTreePhoto(null, false);
+  }
 }
 
 async function initMediaPipe() {
@@ -1076,6 +1186,17 @@ function handleResult(res, now) {
         pointStart = 0;
         setPhotoState(false);
       }
+      // 比耶保持 0.8 秒 → 拍照（3 秒冷却）
+      if (isPeace(lm)) {
+        if (!peaceStart) peaceStart = now;
+        else if (now - peaceStart > 800 && now - lastShot > 3000) {
+          takePhoto();
+          lastShot = now;
+          peaceStart = 0;
+        }
+      } else {
+        peaceStart = 0;
+      }
       ctl.photoSpin = photoShown ? 2.6 : 0;
     }
   } else {
@@ -1155,7 +1276,7 @@ btn.addEventListener('click', async () => {
 
     camBox.style.display = 'block';
     btn.style.display = 'none';
-    hint.textContent = '张开=散开并下雪　握拳=聚拢　食指点下=弹照片　拇指横移=旋转粒子　双手开合=缩放';
+    hint.textContent = '张开=散开并下雪　握拳=聚拢　食指弯下=翻看照片　比耶 1 秒=拍照存入圣诞树　双手开合=缩放';
     running = true;
     loopDetect();
   } catch (e) {
