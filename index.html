@@ -47,7 +47,7 @@
     z-index: 9;
   }
   .cam video { position: absolute; inset: 0; width: 100%; height: 100%;
-    object-fit: cover; transform: scaleX(-1); opacity: .82; }
+    object-fit: cover; transform: scaleX(-1); opacity: 0; }   /* 不显示原画面（保护隐私，只显示手） */
   .cam canvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 2; }
   .err {
     position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
@@ -1491,25 +1491,64 @@ function handleResult(res, now) {
 function drawOverlay() {
   const w = ovCanvas.width, h = ovCanvas.height;
   octx.clearRect(0, 0, w, h);
-  if (!lastLms.length) return;
+  if (!lastLms.length || !video.videoWidth) return;
+
+  // 视频 → 画布的 cover 映射（与 CSS 一致）
+  const vw = video.videoWidth, vh = video.videoHeight;
+  const scale = Math.max(w / vw, h / vh);
+  const dw = vw * scale, dh = vh * scale;
+  const dx = (w - dw) / 2, dy = (h - dh) / 2;
+  const P = (p) => ({ x: dx + (1 - p.x) * dw, y: dy + p.y * dh });
+
   for (const lm of lastLms) {
-    octx.strokeStyle = 'rgba(255,214,130,0.9)';
-    octx.lineWidth = 2;
+    // 手部轮廓（手腕→拇指→四指尖→小指根）
+    const oi = [0, 1, 2, 3, 4, 8, 12, 16, 20, 19, 18, 17];
+    const pts = oi.map(i => P(lm[i]));
+    let cx = 0, cy = 0;
+    pts.forEach(p => { cx += p.x; cy += p.y; });
+    cx /= pts.length; cy /= pts.length;
+    const exp = pts.map(p => ({ x: cx + (p.x - cx) * 1.3, y: cy + (p.y - cy) * 1.3 }));
+
+    // 1) 只在手部区域显示摄像头画面（脸部不会出现）
+    octx.save();
+    octx.beginPath();
+    exp.forEach((p, k) => k ? octx.lineTo(p.x, p.y) : octx.moveTo(p.x, p.y));
+    octx.closePath();
+    octx.clip();
+    octx.save();
+    octx.translate(w, 0);
+    octx.scale(-1, 1);
+    octx.drawImage(video, dx, dy, dw, dh);
+    octx.restore();
+    octx.restore();
+
+    // 2) 手部发光轮廓（赛博描边）
+    octx.save();
+    octx.beginPath();
+    exp.forEach((p, k) => k ? octx.lineTo(p.x, p.y) : octx.moveTo(p.x, p.y));
+    octx.closePath();
+    octx.strokeStyle = 'rgba(255,214,130,0.95)';
+    octx.lineWidth = 2.5;
+    octx.shadowColor = 'rgba(247,220,134,0.9)';
+    octx.shadowBlur = 12;
+    octx.stroke();
+    octx.restore();
+
+    // 3) 骨骼线 + 关节点
+    octx.strokeStyle = 'rgba(255,214,130,0.7)';
+    octx.lineWidth = 1.6;
     for (const [a, b] of HAND_CONNECTIONS) {
-      const pa = lm[a], pb = lm[b];
-      octx.beginPath();
-      octx.moveTo((1 - pa.x) * w, pa.y * h);
-      octx.lineTo((1 - pb.x) * w, pb.y * h);
-      octx.stroke();
+      const pa = P(lm[a]), pb = P(lm[b]);
+      octx.beginPath(); octx.moveTo(pa.x, pa.y); octx.lineTo(pb.x, pb.y); octx.stroke();
     }
     octx.fillStyle = 'rgba(120,255,220,0.95)';
     for (const p of lm) {
-      octx.beginPath();
-      octx.arc((1 - p.x) * w, p.y * h, 3, 0, 6.2832);
-      octx.fill();
+      const q = P(p);
+      octx.beginPath(); octx.arc(q.x, q.y, 2.5, 0, 6.2832); octx.fill();
     }
   }
-  // 实时张开度（辅助看清判定状态）
+
+  // 实时张开度
   if (ctl.active) {
     octx.fillStyle = 'rgba(140, 240, 220, 0.95)';
     octx.font = '11px monospace';
