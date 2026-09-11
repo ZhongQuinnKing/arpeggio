@@ -920,6 +920,10 @@
     var photoGeo = new THREE.PlaneGeometry(9.5, 11.1);
     var photoCur = 0.01, photoV = 0, photoTarget = 0;
     var photoTgt = new THREE.Vector3(), photoTreeC = new THREE.Vector3(0, 10.5, 0), photoCamDir = new THREE.Vector3();
+
+    // ---------- 开场特效（点击"开启手势控制"时：炸开 → 高速旋转 → 回旋聚拢）----------
+    var introT = -1;
+    window.__introBurst = function () { introT = 0; };
     window.__cyberTreePhoto = function (canvasEl, on) {
       if (canvasEl) {
         var aspect = canvasEl.width / canvasEl.height;
@@ -975,6 +979,26 @@
       photoSpinS += (gSpin - photoSpinS) * (1 - Math.pow(0.01, dt));
       if (g && g.active && g.camY != null) camYT = g.camY;
       if (g && g.active && g.zoom != null) distT = 44 - g.zoom * 24;   // 手靠近/拉开 = 放大
+
+      // 【开场特效】炸开 → 高速旋转 → 回旋聚拢（覆盖手势值，结束后手势无缝接管）
+      if (introT >= 0) {
+        introT += dt;
+        if (introT < 0.45) {                 // 猛地炸开
+          exSmooth = (introT / 0.45) * 1.5;
+          rotVelHand = introT * 9;
+        } else if (introT < 2.2) {           // 星云高速旋转
+          exSmooth = 1.5;
+          rotVelHand = 3.8;
+        } else if (introT < 3.4) {           // 回旋聚拢（缓出）
+          var ik = (introT - 2.2) / 1.2;
+          exSmooth = 1.5 * (1 - ik * ik);
+          rotVelHand = 3.8 * (1 - ik);
+        } else {
+          exSmooth = 0;
+          rotVelHand = 0;
+          introT = -1;
+        }
+      }
 
       // 树旋转（拖动惯性 + 自动慢转 + 手势 + 照片弹出快转）
       rot += (rotVel + AUTO + rotVelHand + photoSpinS) * dt;
@@ -1484,6 +1508,14 @@ function loopDetect() {
 }
 
 btn.addEventListener('click', async () => {
+  // 开场特效：整棵树炸开旋转再聚拢（正好覆盖摄像头启动的等待）
+  if (window.__introBurst) window.__introBurst();
+  flash.style.transition = 'none';
+  flash.style.opacity = '0.65';
+  requestAnimationFrame(() => {
+    flash.style.transition = 'opacity .9s';
+    flash.style.opacity = '0';
+  });
   btn.disabled = true;
   btn.textContent = '正在开启摄像头…';
   try {
