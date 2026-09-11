@@ -105,6 +105,68 @@
   @media (max-width: 700px) {
     .loader-title { font-size: 20px; letter-spacing: .2em; margin-bottom: 36px; }
   }
+  .loader { overflow: hidden; }
+  .loader::before {
+    content: ''; position: absolute; left: 50%; top: 42%;
+    width: 74vmin; height: 74vmin; transform: translate(-50%, -50%);
+    background: radial-gradient(circle, rgba(201,162,39,.15) 0%, rgba(201,162,39,.05) 45%, transparent 72%);
+    animation: lgBreathe 5.5s ease-in-out infinite; pointer-events: none;
+  }
+  @keyframes lgBreathe {
+    0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: .75; }
+    50% { transform: translate(-50%, -50%) scale(1.15); opacity: 1; }
+  }
+  .loader-staff {
+    position: absolute; left: 4%; right: 4%; top: 50%;
+    height: 120px; transform: translateY(-50%);
+    display: flex; flex-direction: column; justify-content: space-between;
+    opacity: .5; pointer-events: none;
+  }
+  .loader-staff span {
+    display: block; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(201,162,39,.25) 18%, rgba(201,162,39,.25) 82%, transparent);
+  }
+  .loader-notes { position: absolute; inset: 0; pointer-events: none; }
+  .loader-notes span {
+    position: absolute; bottom: -44px;
+    font: 300 26px Georgia, "Times New Roman", serif;
+    color: rgba(240, 215, 138, .55);
+    text-shadow: 0 0 16px rgba(240, 205, 120, .55);
+    animation: noteFloat 9s linear infinite;
+    animation-delay: var(--d, 0s);
+  }
+  @keyframes noteFloat {
+    0% { transform: translateY(0) translateX(0); opacity: 0; }
+    12% { opacity: .8; }
+    65% { opacity: .5; }
+    100% { transform: translateY(-92vh) translateX(var(--x, 14px)); opacity: 0; }
+  }
+  .loader-inner { position: relative; display: flex; flex-direction: column; align-items: center; z-index: 2; }
+  .loader-bar { position: relative; overflow: visible; }
+  .loader-fill { position: relative; overflow: hidden; }
+  .loader-fill::after {
+    content: ''; position: absolute; top: 0; bottom: 0; width: 46px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .95), transparent);
+    animation: lgSheen 1.5s linear infinite;
+  }
+  @keyframes lgSheen { 0% { left: -46px; } 100% { left: 100%; } }
+  .loader-dot {
+    position: absolute; top: 50%; left: 0%;
+    width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px;
+    border-radius: 50%; background: #fff8dc;
+    box-shadow: 0 0 10px 2px rgba(247, 220, 134, .95), 0 0 26px 7px rgba(247, 220, 134, .4);
+    animation: lgDotPulse 1.4s ease-in-out infinite;
+    transition: left .3s ease;
+  }
+  @keyframes lgDotPulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.4); } }
+  .loader-wave { display: flex; align-items: flex-end; gap: 5px; height: 26px; margin-top: 24px; }
+  .loader-wave span {
+    width: 3px; height: 6px; border-radius: 2px;
+    background: linear-gradient(180deg, #f7dc86, #c9a227);
+    box-shadow: 0 0 8px rgba(247, 220, 134, .5);
+    animation: lgWave 1.15s ease-in-out infinite;
+  }
+  @keyframes lgWave { 0%, 100% { height: 6px; opacity: .4; } 50% { height: 26px; opacity: 1; } }
   @media (max-width: 700px) {
     .title { font-size: 20px; letter-spacing: .2em; top: 4%; }
     .hint { font-size: 10px; letter-spacing: .1em; white-space: normal; max-width: 92%; line-height: 1.7; }
@@ -116,9 +178,22 @@
 <body>
 <div id="app"></div>
 <div class="loader" id="loader">
-  <div class="loader-title">MERRY CHRISTMAS</div>
-  <div class="loader-bar"><div class="loader-fill" id="loadFill"></div></div>
-  <div class="loader-pct" id="loadPct">0%</div>
+  <div class="loader-staff"><span></span><span></span><span></span><span></span><span></span></div>
+  <div class="loader-notes">
+    <span style="left:12%; --d:0s; --x:22px">♪</span>
+    <span style="left:30%; --d:2.6s; --x:-18px">♫</span>
+    <span style="left:64%; --d:1.3s; --x:26px">♪</span>
+    <span style="left:83%; --d:4.1s; --x:-22px">♬</span>
+  </div>
+  <div class="loader-inner">
+    <div class="loader-title">MERRY CHRISTMAS</div>
+    <div class="loader-bar">
+      <div class="loader-fill" id="loadFill"></div>
+      <div class="loader-dot" id="loadDot"></div>
+    </div>
+    <div class="loader-wave"><span style="animation-delay:0.00s"></span><span style="animation-delay:0.08s"></span><span style="animation-delay:0.16s"></span><span style="animation-delay:0.24s"></span><span style="animation-delay:0.32s"></span><span style="animation-delay:0.40s"></span><span style="animation-delay:0.48s"></span><span style="animation-delay:0.56s"></span><span style="animation-delay:0.64s"></span><span style="animation-delay:0.72s"></span><span style="animation-delay:0.80s"></span><span style="animation-delay:0.88s"></span><span style="animation-delay:0.96s"></span><span style="animation-delay:1.04s"></span></div>
+    <div class="loader-pct" id="loadPct">0%</div>
+  </div>
   <div class="loader-tip">正在准备您的圣诞树…</div>
 </div>
 <div class="title">MERRY CHRISTMAS</div>
@@ -148,11 +223,13 @@
   var loaderEl = document.getElementById('loader');
   var loadFill = document.getElementById('loadFill');
   var loadPct = document.getElementById('loadPct');
+  var loadDot = document.getElementById('loadDot');
   var _progress = 0;
   function setLoad(p) {
     if (p > _progress) {
       _progress = p;
       loadFill.style.width = _progress + '%';
+      if (loadDot) loadDot.style.left = _progress + '%';
       loadPct.textContent = Math.round(_progress) + '%';
     }
   }
@@ -185,9 +262,9 @@
     }).catch(function () { onP(1); });
   }
   function startPrefetch() {
-    prefetchWithProgress('./models/hand_landmarker.task', function (p) { setLoad(45 + p * 25); })
+    prefetchWithProgress('./models/hand_landmarker.task', function (p) { setLoad(30 + p * 30); })
       .then(function () {
-        return prefetchWithProgress('./vendor/wasm/vision_wasm_internal.wasm', function (p) { setLoad(70 + p * 25); });
+        return prefetchWithProgress('./vendor/wasm/vision_wasm_internal.wasm', function (p) { setLoad(60 + p * 35); });
       })
       .then(function () { finishLoad(); });
   }
@@ -989,6 +1066,8 @@
   }
 
   main();
+  setLoad(30);
+  startPrefetch();
 })();
 </script>
 
