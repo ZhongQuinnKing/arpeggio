@@ -194,7 +194,7 @@
     <div class="loader-wave"><span style="animation-delay:0.00s"></span><span style="animation-delay:0.08s"></span><span style="animation-delay:0.16s"></span><span style="animation-delay:0.24s"></span><span style="animation-delay:0.32s"></span><span style="animation-delay:0.40s"></span><span style="animation-delay:0.48s"></span><span style="animation-delay:0.56s"></span><span style="animation-delay:0.64s"></span><span style="animation-delay:0.72s"></span><span style="animation-delay:0.80s"></span><span style="animation-delay:0.88s"></span><span style="animation-delay:0.96s"></span><span style="animation-delay:1.04s"></span></div>
     <div class="loader-pct" id="loadPct">0%</div>
   </div>
-  <div class="loader-tip">正在准备您的圣诞树…</div>
+  <div class="loader-tip">正在准备您的圣诞树…（首次加载稍等，之后打开秒进）</div>
 </div>
 <div class="title">MERRY CHRISTMAS</div>
 <div class="hint" id="hint">拖动旋转　滚轮缩放　点击爆发</div>
@@ -259,14 +259,35 @@
           return pump();
         });
       })();
-    }).catch(function () { onP(1); });
+    });
   }
+  // 资源路径（默认本地；线上探测 CDN 成功后切换到 CDN——jsdelivr 国内更快）
+  window.__assetPaths = { model: './models/hand_landmarker.task', wasmDir: './vendor/wasm' };
   function startPrefetch() {
-    prefetchWithProgress('./models/hand_landmarker.task', function (p) { setLoad(30 + p * 30); })
-      .then(function () {
-        return prefetchWithProgress('./vendor/wasm/vision_wasm_internal.wasm', function (p) { setLoad(60 + p * 35); });
-      })
-      .then(function () { finishLoad(); });
+    var isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.protocol === 'file:';
+    var CDN = 'https://cdn.jsdelivr.net/gh/ZhongQuinnKing/arpeggio@main';
+    var tasks = [];
+    // 模型（7.8MB）
+    if (isLocal) {
+      tasks.push(prefetchWithProgress('./models/hand_landmarker.task', function (p) { setLoad(30 + p * 30); }));
+    } else {
+      tasks.push(
+        prefetchWithProgress(CDN + '/models/hand_landmarker.task', function (p) { setLoad(30 + p * 30); })
+          .then(function () { window.__assetPaths.model = CDN + '/models/hand_landmarker.task'; })
+          .catch(function () { return prefetchWithProgress('./models/hand_landmarker.task', function (p) { setLoad(30 + p * 30); }); })
+      );
+    }
+    // wasm（9.4MB）—— 与模型并行下载
+    if (isLocal) {
+      tasks.push(prefetchWithProgress('./vendor/wasm/vision_wasm_internal.wasm', function (p) { setLoad(60 + p * 35); }));
+    } else {
+      tasks.push(
+        prefetchWithProgress(CDN + '/vendor/wasm/vision_wasm_internal.wasm', function (p) { setLoad(60 + p * 35); })
+          .then(function () { window.__assetPaths.wasmDir = CDN + '/vendor/wasm'; })
+          .catch(function () { return prefetchWithProgress('./vendor/wasm/vision_wasm_internal.wasm', function (p) { setLoad(60 + p * 35); }); })
+      );
+    }
+    Promise.all(tasks).then(function () { finishLoad(); });
   }
 
   function fail(msg) {
@@ -1295,9 +1316,9 @@ function showPhoto(on) {
 }
 
 async function initMediaPipe() {
-  const vision = await FilesetResolver.forVisionTasks('./vendor/wasm');
+  const vision = await FilesetResolver.forVisionTasks(window.__assetPaths.wasmDir);
   const make = (delegate) => HandLandmarker.createFromOptions(vision, {
-    baseOptions: { modelAssetPath: './models/hand_landmarker.task', delegate },
+    baseOptions: { modelAssetPath: window.__assetPaths.model, delegate },
     runningMode: 'VIDEO',
     numHands: 2
   });
