@@ -24,6 +24,13 @@
     letter-spacing: .18em; color: rgba(140, 200, 235, .5);
     user-select: none; pointer-events: none; white-space: nowrap; text-align: center;
   }
+  .license {
+    position: fixed; left: 50%; top: calc(6% + 56px); transform: translateX(-50%);
+    font: 10px/1.5 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    letter-spacing: .16em; color: rgba(140, 200, 235, .4);
+    user-select: none; pointer-events: none; white-space: normal; max-width: 92%; text-align: center;
+    z-index: 5;
+  }
   .ghost-btn {
     position: fixed; left: 50%; bottom: 42px; transform: translateX(-50%);
     font: 13px/1.6 -apple-system, "PingFang SC", sans-serif;
@@ -170,6 +177,7 @@
   @media (max-width: 700px) {
     .title { font-size: 20px; letter-spacing: .2em; top: 4%; }
     .hint { font-size: 10px; letter-spacing: .1em; white-space: normal; max-width: 92%; line-height: 1.7; }
+    .license { top: calc(4% + 34px); font-size: 9px; letter-spacing: .1em; }
     .ghost-btn { font-size: 12px; padding: 9px 20px; bottom: 52px; }
     .cam { width: 132px; height: 99px; right: 10px; bottom: 10px; }
   }
@@ -198,6 +206,7 @@
 </div>
 <div class="title">MERRY CHRISTMAS</div>
 <div class="hint" id="hint">拖动旋转　滚轮缩放　点击爆发</div>
+<div class="license">© 2026 ZhongQuinnKing · 免费使用，商用请先联系授权</div>
 <button class="ghost-btn" id="gestureBtn">开启手势控制</button>
 
 <div class="cam" id="camBox">
@@ -730,7 +739,7 @@
 
     // ---------- 散开粒子群（参照视频：金球 + 橙金方块 + 蓝白照片卡 + 红球 混合星云）----------
     function makePhotoCardTex(idx) {
-      // 小照片卡占位（浅蓝白照片感，等少爷图片替换）
+      // 小照片卡占位（浅蓝白照片感，等图片替换）
       var S = 128;
       var cv = document.createElement('canvas'); cv.width = cv.height = S;
       var ctx = cv.getContext('2d');
@@ -834,7 +843,7 @@
       for (var i = 0; i < 4; i++) {
         var cx = (i % 2) * CELL, cy = Math.floor(i / 2) * CELL;
         var pal = pals[i];
-        // 上半亮（天空）+ 下半深（水面）—— 占据位图，等少爷图片替换
+        // 上半亮（天空）+ 下半深（水面）—— 占据位图，等图片替换
         var g = ctx.createLinearGradient(cx, cy, cx, cy + CELL * 0.6);
         g.addColorStop(0, pal[0]);
         g.addColorStop(1, pal[1]);
